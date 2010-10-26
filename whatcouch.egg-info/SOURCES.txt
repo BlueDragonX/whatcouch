@@ -1,0 +1,9 @@
+setup.cfg
+setup.py
+whatcouch/__init__.py
+whatcouch.egg-info/PKG-INFO
+whatcouch.egg-info/SOURCES.txt
+whatcouch.egg-info/dependency_links.txt
+whatcouch.egg-info/entry_points.txt
+whatcouch.egg-info/not-zip-safe
+whatcouch.egg-info/top_level.txt

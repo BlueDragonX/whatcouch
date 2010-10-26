@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: whatcouch
+Version: 1.0dev1dev
+Summary: A CouchDB plugin for repoze.what!
+Home-page: http://code.google.com/p/whatcouch/
+Author: Ryan Bourgeois
+Author-email: bluedragonx@gmail.com
+License: GPLv2
+Description: Plugins to extend repoze.who and repoze.what with CouchDB support.  Includes quickstart functionality.
+Keywords: Python CouchDB CouchDBKit WSGI repoze.who repoze.what authentication authorization
+Platform: UNKNOWN
