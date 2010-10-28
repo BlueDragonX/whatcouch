@@ -8,56 +8,6 @@
 # warranties are disclaimed, including, but not limited to, the implied
 # warranties of title, merchantability, against infringement, and fitness
 # for a particular purpose.
-"""
-This is a basic example CouchDB model for use with this plugin.  It provides
-couchdbkit documents for users, groups, and permissions whose attribute and
-method names conform to the default values expected by the setup_couch_auth
-function.  This model needs to be associated with a database by calling
-init_model(database).
-
-This model uses the following views and so they must be defined in CouchDB
-for things to work:
-
-_design/All:
-{
-   "by_type": {
-       "map": "function(doc) { emit(doc.doc_type, doc); }"
-   }
-}
-
-_design/User:
-{
-   "by_username": {
-       "map": "function(doc) { if (doc.doc_type == 'User') emit(doc.username, doc); }"
-   },
-   "by_group_name": {
-       "map": "function(doc) { if (doc.doc_type == 'User') for (var i = 0; i < doc.groups.length; i++) emit(doc.groups[i].name, doc); }"
-   }
-}
-
-_design/Group:
-{
-   "by_name": {
-       "map": "function(doc) { if (doc.doc_type == 'Group') emit(doc.name, doc); }"
-   },
-   "by_permission_name": {
-       "map": "function(doc) { if (doc.doc_type == 'Group') for (var i = 0; i < doc.permissions.length; i++) emit(doc.permissions[i].name, doc) }"
-   }
-}
-
-_design/Permission:
-{
-   "by_name": {
-       "map": "function(doc) { if (doc.doc_type == 'Permission') emit(doc.name, doc); }"
-   },
-   "by_group_name": {
-       "map": "function(doc) { if (doc.doc_type == 'Group') for (var i = 0; i < doc.permissions.length; i++) emit(doc.name, doc.permissions[i]); }"
-   },
-   "by_user_username": {
-       "map": "function(doc) { if (doc.doc_type == 'User') for (var i = 0; i < doc.groups.length; i++) for (var j = 0; j < doc.groups[i].permissions.length; j++) emit(doc.username, doc.groups[i].permissions[i]) }"
-   }
-}
-"""
 
 from couchdbkit import Document, StringProperty, SchemaListProperty
 import bcrypt
@@ -87,137 +37,36 @@ def hashcmp(hash, password):
 
 class Permission(Document):
     """
-    Permission document.  Permissions belong to groups on a many-to-many relationship.
+    Permission document.  Permissions belong to groups in a many-to-many relationship.
     """
-
     name = StringProperty(required=True)
-
-    @staticmethod
-    def list():
-        """
-        Retrieve all Permission documents in the database.
-        :return: A list containing all Permission documents.
-        """
-        return Permission.view('All/by_type', key='Permission')
-
-    @staticmethod
-    def find_by_name(name):
-        """
-        Search the database for a Permission document with the given name.
-        :param name: The name of the document to search for.
-        :return: The document or None if not found.
-        """
-        docs = Permission.view('Permission/by_name', key=name)
-        if (len(docs) == 0):
-            return None
-        return docs.__iter__().next()
-
-    @staticmethod
-    def find_by_group_name(name):
-        """
-        Search the database for Permission documents assigned to the named Group.
-        :param name: The name of the Group to retrieve Permission documents from.
-        :return: A list containing Permission documents assigned to the named Group.  Will be empty of the group does not exist.
-        """
-        return Permission.view('Permission/by_group_name', key=name)
-
-    @staticmethod
-    def find_by_user_username(username):
-        """
-        Search the database for Permission documents assigned to the named User.
-        Permissions are mapped to a user through groups.  So Permissions are returened
-        which are assigned to Groups which are assigned to this User.
-        :param username: The username of the User to retrieve Permission documents for.
-        :return: A list containing Permission documents assigned to the named User.  Will be empty of the user does not exist.
-        """
-        return Permission.view('Permission/by_user_username', key=username)
 
 class Group(Document):
     """
     Group document.  Groups are assigned to users in a many-to-many relationship.
     """
-
     name = StringProperty(required=True)
     permissions = SchemaListProperty(Permission)
-    
-    @staticmethod
-    def list():
-        """
-        Retrieve all Group documents in the database.
-        :return: A list containing all Group documents.
-        """
-        return Group.view('All/by_type', key='Group')
-
-    @staticmethod
-    def find_by_name(name):
-        """
-        Search the database for a Group document with the given name.
-        :param name: The name of the document to search for.
-        :return: The document or None if not found.
-        """
-        docs = Group.view('Group/by_name', key=name)
-        if (len(docs) == 0):
-            return None
-        return docs.__iter__().next()
-
-    @staticmethod
-    def find_by_permission_name(name):
-        """
-        Search the database for Group documents which contain the named Permission.
-        :param name: The name of the Permission to retrieve Groups documents for.
-        :return: A list containing Group documents assigned which contain the named Permission.  Will be empty of the Permission does not exist.
-        """
-        return Group.view('Group/by_permission_name', key=name)
 
 class User(Document):
     """
     User document.
     """
-
     username = StringProperty(required=True)
     password = StringProperty()
     groups = SchemaListProperty(Group)
 
     @staticmethod
-    def list():
+    def create(username, password, groups=[]):
         """
-        Retrieve all User documents in the database.
-        :return: A list containing all User documents.
+        Convenience method for creating a new user.
+        :param username: The username of the new user.
+        :param password: The password of the new user.
+        :param groups: The groups to assign to the new user.
+        :return: The new user document.
         """
-        return User.view('All/by_type', key='User')
-
-    @staticmethod
-    def create(username, password):
         hash = hashpw(password)
-        return User(username=username, password=hash)
-
-    @staticmethod
-    def find_by_username(username):
-        """
-        Search the database for a User document with the given username.
-        :param username: The username of the User document to search for.
-        :return: The document or None if not found.
-        """
-        docs = User.view('User/by_username', key=username)
-        if (len(docs) == 0):
-            return None
-        return docs.__iter__().next()
-
-    @staticmethod
-    def find_by_group_name(name):
-        """
-        Search the database for User documents which contain the named Group.
-        :param name: The name of the Group to retrieve User documents for.
-        :return: A list containing User documents which contain the named Group.  Will be empty of the Group does not exist.
-        """
-        return User.view('User/by_group_name', key=name)
-
-    def set_password(self, password):
-        """
-        Set the password.  Hashed the password before setting.
-        :param password: The password to set in plaintext.
-        """
-        self.password = hashpw(password)
+        return User(username=username, password=hash, groups=groups)
 
     def authenticate(self, password):
         """
@@ -227,12 +76,19 @@ class User(Document):
         """
         return hashcmp(self.password, password)
 
+    def set_password(self, password):
+        """
+        Set the password.  Hashed the password before setting.
+        :param password: The password to set in plaintext.
+        """
+        self.password = hashpw(password)
+
 def init_model(database):
     """
-    Initialize the model.  Associates each of the document types with a database.
+    Initialize the model.  Associates the given database with each of the documents.
+    :param database: The database to initialize the model with.
     """
-    Permission.set_db(database)
-    Group.set_db(database)
     User.set_db(database)
-
+    Group.set_db(database)
+    Permission.set_db(database)
 

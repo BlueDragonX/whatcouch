@@ -31,8 +31,36 @@ class GroupAdapter(BaseSourceAdapter):
         :param translations: The translations to use when mapping requests against a model.
         """
         self.t11 = translations
-        self.user_wrapper = UserClassWrapper(translations)
-        self.group_wrapper = GroupClassWrapper(translations)
+        self.User = self.t11['user_class']
+        self.user_name_key = self.t11['user_name_key']
+        self.user_groups_key = self.t11['user_groups_key']
+        self.user_list_view = self.t11['user_list_view']
+        self.user_by_group_view = self.t11['user_by_group_view']
+        self.Group = self.t11['group_class']
+        self.group_name_key = self.t11['group_name_key']
+        self.group_list_view = self.t11['group_list_view']
+
+    def _get_user(self, name):
+        """
+        Get a user by name.
+        :param name: The name of the user to get.
+        :return: The user document with the given name or None if not found.
+        """
+        users = self.User.view(self.user_list_view, key=name)
+        if len(users) > 0:
+            return users.__iter__().next()
+        return None
+
+    def _get_group(self, name):
+        """
+        Get a group by name.
+        :param name: The name of the group to get.
+        :return: The group document with the given name or None if not found.
+        """
+        groups = self.Group.view(self.group_list_view, key=name)
+        if len(groups) > 0:
+            return groups.__iter__().next()
+        return None
 
     def _get_all_sections(self):
         """
@@ -41,10 +69,10 @@ class GroupAdapter(BaseSourceAdapter):
         :return: A dictionary of group to user name list mappings.
         """
         sections = {}
-        groups = self.group_wrapper.list()
+        groups = self.Group.view(self.group_list_view)
         for group in groups:
-            sections[group.name] = self._get_section_items(group.name)
-        return sections
+            name = getattr(group, self.group_name_key)
+            sections[name] = self._get_section_items(name)
 
     def _get_section_items(self, section):
         """
@@ -52,8 +80,8 @@ class GroupAdapter(BaseSourceAdapter):
         :param section: The name of the group to retrieve user names for.
         :return: A list of user names.  Will be empty of the group does not exist.
         """
-        users = self.user_wrapper.find_by_group(section)
-        return [ user.name for user in users ]
+        users = self.User.view(self.user_list_view)
+        return [ getattr(user, self.user_name_key) for user in users ]
 
     def _find_sections(self, hint):
         """
@@ -61,7 +89,16 @@ class GroupAdapter(BaseSourceAdapter):
         :param hint: The credentials dict.
         :return: A list of group names associated with the user found in the credentials dict.
         """
-        return [ group.name for group in self.group_wrapper.find_by_hint(hint) ]
+        user = None
+        sections = []
+        if user in hint:
+            user = hint['user']
+        elif 'repoze.what.userid' in hint:
+            name = hint['repoze.what.userid']
+            user = self._get_user(name)
+        if user is not None:
+            sections = [ getattr(group, self.group_name_key) for group in user.groups ]
+        return sections
 
     def _item_is_included(self, section, item):
         """
@@ -70,11 +107,10 @@ class GroupAdapter(BaseSourceAdapter):
         :param item: The name of the user to check.
         :return: True if the user is in the group, False otherwise.
         """
-        user = self.user_wrapper.find_by_name(item)
-        if user is not None:
-            for group in user.groups:
-                if group.name == section:
-                    return True
+        user = self._get_user(item)
+        for group in user.groups:
+            if getattr(group, self.group_name_key) == section:
+                return True
         return False
 
     def _include_items(self, section, items):
@@ -83,11 +119,15 @@ class GroupAdapter(BaseSourceAdapter):
         :param section: The name of the group to add the users to.
         :param items: A list containing names of users to add to the group.
         """
-        group = self.group_wrapper.find_by_name(section)
+        group = self._get_group(section)
         if group is not None:
-            users = self.user_wrapper.find_by_names(items)
-            map(lambda u: u.group_append(group), users)
-            self.user_wrapper.bulk_save(users)
+            save_users = []
+            for item in items:
+                user = self._get_user(item)
+                if user is not None:
+                    getattr(user, self.user_groups_key).append(group)
+                    save_users.append(user)
+            self.User.bulk_save(save_users)
 
     def _exclude_items(self, section, items):
         """
@@ -95,9 +135,15 @@ class GroupAdapter(BaseSourceAdapter):
         :param section: The name of the group to remove users from.
         :param items: A list containing names of users to remove from the group.
         """
-        users = self.user_wrapper.find_by_names(items)
-        map(lambda u: u.groups_remove([section]))
-        self.user_wrapper.bulk_save(users)
+        save_users = []
+        for item in items:
+            user = self._get_user(item)
+            if user is not None:
+                remove_groups = filter(lambda g: getattr(g, self.group_name_key) == section, getattr(user, self.user_groups_key))
+                if len(remove_groups) > 0:
+                    map(lambda g: getattr(user, self.user_groups_key).remove(g), remove_groups)
+                    save_users.append(user)
+        self.User.bulk_save(save_users)
 
     def _section_exists(self, section):
         """
@@ -105,15 +151,15 @@ class GroupAdapter(BaseSourceAdapter):
         :param section: The name of the group to check.
         :return: True if the group exists, False otherwise.
         """
-        return self.group_wrapper.find_by_name(section) is not None
+        return len(self.Group.view(self.group_list_view, key=section)) > 0
 
     def _create_section(self, section):
         """
         Create a new group.
         :param section: The name of the new group.
         """
-        group = self.group_wrapper.create()
-        group.name = section
+        group = self.Group()
+        setattr(group, self.group_name_key, section)
         group.save()
 
     def _edit_section(self, section, new_section):
@@ -122,9 +168,9 @@ class GroupAdapter(BaseSourceAdapter):
         :param section: The name of the group to change.
         :param new_section: The new name of the group.
         """
-        group = self.group_wrapper.find_by_name(section)
+        group = self._get_group(section)
         if group is not None:
-            group.name = new_section
+            setattr(group, self.group_name_key, new_section)
             group.save()
 
     def _delete_section(self, section):
@@ -132,12 +178,17 @@ class GroupAdapter(BaseSourceAdapter):
         Delete the group.
         :param section: The name of the group to delete.
         """
-        group = self.group_wrapper.find_by_name(section)
+        group = self._get_group(section)
+        save_users = []
         if group is not None:
-            users = self.user_wrapper.find_by_group(section)
-            map(lambda u: u.groups_remove([section]), users)
-            self.user_wrapper.bulk_save(users)
-            group.delete()
+            users = self.User.view(self.user_by_group_view, key=section)
+            for user in users:
+                remove_groups = filter(lambda g: getattr(g, self.group_name_key) == section)
+                if len(remove_groups) > 0:
+                    map(lambda g: getattr(user, self.user_groups_key).remove(g), remove_groups)
+                    save_users.append(user)
+        self.User.bulk_save(save_users)
+        group.delete()
 
 class PermissionAdapter(BaseSourceAdapter):
 
@@ -147,8 +198,36 @@ class PermissionAdapter(BaseSourceAdapter):
         :param translations: The translations to use when mapping requests against a model.
         """
         self.t11 = translations
-        self.perm_wrapper = PermissionClassWrapper(translations)
-        self.group_wrapper = GroupClassWrapper(translations)
+        self.Group = self.t11['group_class']
+        self.group_name_key = self.t11['group_name_key']
+        self.group_perms_key = self.t11['group_perms_key']
+        self.group_by_perm_view = self.t11['group_by_perm_view']
+        self.Permission = self.t11['perm_class']
+        self.perm_name_key = self.t11['perm_name_key']
+        self.perm_list_view = self.t11['perm_list_view']
+        self.perm_by_group_view = self.t11['perm_by_group_view']
+
+    def _get_group(name):
+        """
+        Get a group by name.
+        :param name: The name of the group to get.
+        :return: The named group document or None if not found.
+        """
+        groups = self.Group.view(self.group_list_view, key=name)
+        if len(groups) > 0:
+            return groups.__iter__().next()
+        return None
+
+    def _get_perm(name):
+        """
+        Get a permission by name.
+        :param name: The name of the permission to get.
+        :return: The named permission document or None if not found.
+        """
+        perms = self.Permission.view(self.perm_list_view, key=name)
+        if len(perms) > 0:
+            return perms.__iter__().next()
+        return None
 
     def _get_all_sections(self):
         """
@@ -157,9 +236,10 @@ class PermissionAdapter(BaseSourceAdapter):
         :return: A dictionary of permission to group name list mappings.
         """
         sections = {}
-        perms = self.perm_wrapper.list()
+        perms = self.Permission.view(self.perm_list_view)
         for perm in perms:
-            sections[perm.name] = self._get_section_items(perm.name)
+            name = getattr(perm, self.perm_name_key)
+            sections[name] = self._get_section_items(name)
         return sections
 
     def _get_section_items(self, section):
@@ -168,15 +248,16 @@ class PermissionAdapter(BaseSourceAdapter):
         :param section: The name of the permission to retrieve group names for.
         :return: A list of group names.  Will be empty of the permission does not exist.
         """
-        groups = self.group_wrapper.find_by_permission(section)
-        return [ group.name for group in groups ]
+        groups = self.Group.view(self.group_by_perm_view, key=section)
+        return [ getattr(group, self.group_name_key) for group in groups ]
 
     def _find_sections(self, hint):
         """
         Retrieve permissions containing a particular group.
         :param hint: The group name to retrieve permissions for.
         """
-        return [ perm.name for perm in self.perm_wrapper.find_by_group(hint) ]
+        perms = self.Permission.view(self.perm_by_group_view, key=hint)
+        return [ getattr(perm, self.perm_name_key) for perm in perms ]
 
     def _item_is_included(self, section, item):
         """
@@ -185,11 +266,10 @@ class PermissionAdapter(BaseSourceAdapter):
         :param item: The name of the group to check.
         :return: True if the group is in the permission, False otherwise.
         """
-        group = self.group_wrapper.find_by_name(item)
-        if group is not None:
-            for perm in group.permissions:
-                if perm.name == section:
-                    return True
+        group = self._get_group(item)
+        for perm in getattr(group, self.group_perms_key):
+            if getattr(perm, self.perm_name_key) == section:
+                return True
         return False
 
     def _include_items(self, section, items):
@@ -198,12 +278,15 @@ class PermissionAdapter(BaseSourceAdapter):
         :param section: The name of the permission to add the groups to.
         :param items: A list containing names of groups to add to the permission.
         """
-        perm = self.perm_wrapper.find_by_name(section)
+        perm = self._get_perm(section)
         if perm is not None:
-            groups = [ self.group_wrapper.find_by_name(item) for item in items ]
-            groups = filter(lambda g: g is not None, groups)
-            map(lambda g: g.permissions_append(perm), groups)
-            self.group_wrapper.bulk_save(groups)
+            save_groups = []
+            for item in items:
+                group = self._get_group(item)
+                if group is not None:
+                    getattr(group, self.group_perms_key).append(perm)
+                    save_groups.append(group)
+            self.Group.bulk_save(save_groups)
 
     def _exclude_items(self, section, items):
         """
@@ -211,9 +294,15 @@ class PermissionAdapter(BaseSourceAdapter):
         :param section: The name of the permission to remove groups from.
         :param items: A list containing names of groups to remove from the permission.
         """
-        groups = self.group_wrapper.find_by_names(items)
-        map(lambda g: g.permissions_remove([section]))
-        self.group_wrapper.bulk_save(groups)
+        save_groups = []
+        for item in items:
+            group = self._get_group(item)
+            if group is not None:
+                remove_perms = filter(lambda p: getattr(p, self.perm_name_key) == section, getattr(group, self.group_perms_key))
+                if len(remove_perms) > 0:
+                    map(lambda p: getattr(group, self.group_perms_key).remove(p), remove_perms)
+                    save_groups.append(group)
+        self.Group.bulk_save(save_groups)
 
     def _section_exists(self, section):
         """
@@ -221,15 +310,15 @@ class PermissionAdapter(BaseSourceAdapter):
         :param section: The name of the permission to check.
         :return: True if the permission exists, False otherwise.
         """
-        return self.perm_wrapper.find_by_name(section) is not None
+        return len(self.Permission.view(self.perm_list_view, key=section)) > 0
 
     def _create_section(self, section):
         """
         Create a new permission.
         :param section: The name of the new permission.
         """
-        perm = self.perm_wrapper.create()
-        perm.name = section
+        perm = self.Permission()
+        setattr(perm, self.perm_name_key, section)
         perm.save()
 
     def _edit_section(self, section, new_section):
@@ -238,9 +327,9 @@ class PermissionAdapter(BaseSourceAdapter):
         :param section: The name of the permission to change.
         :param new_section: The new name of the permission.
         """
-        perm = self.perm_wrapper.find_by_name(section)
+        perm = self._get_perm(section)
         if perm is not None:
-            perm.name = new_section
+            setattr(perm, self.perm_name_key, new_section)
             perm.save()
 
     def _delete_section(self, section):
@@ -248,7 +337,15 @@ class PermissionAdapter(BaseSourceAdapter):
         Delete the permission.
         :param section: The name of the permission to delete.
         """
-        perm = self.perm_wrapper.find_by_name(section)
+        perm = self._get_perm(section)
+        save_groups = []
         if perm is not None:
-            perm.delete()
+            groups = self.Group.view(self.group_by_perm_view, key=section)
+            for group in groups:
+                remove_perms = filter(lambda p: getattr(p, self.perm_name_key) == section)
+                if len(remove_perms) > 0:
+                    map(lambda p: getattr(group, self.group_perms_key).remove(p), remove_perms)
+                    save_groups.append(group)
+        self.Group.bulk_save(save_groups)
+        perm.delete()
 

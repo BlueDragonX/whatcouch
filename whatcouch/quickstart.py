@@ -22,24 +22,43 @@ from whatcouch.model import User, Group, Permission
 
 """
 Default translations.  These will be substituted for missing values
-in the translations dict that's passed to the quickstart function.
-See wrappers.py for documentation on the translations dict.
+in the translations dict that is passed to the quickstart function.
+
+The following table documents the supported key values in the translations
+dict and each key's purpose:
+
+user_class:             The class for User documents.  Not used by quickstart.
+user_name_key:          User attribute where the login name is stored.
+user_groups_key:        User attribute where the groups collection is stored.
+user_list_view:         The name of a view that maps user names to user documents.
+user_by_group_view:     The name of a view that maps group names to user documents.
+user_auth_method:       Method on the User document which should be used to authenticate the user.  Takes the password as an argument.
+group_class:            The class for Group documents.  Not used by quickstart.
+group_name_key:         Group attribute where the group name is stored.
+group_perms_key:        Group attribute where the permissions collection is stored.
+group_list_view:        The name of a view that maps group names to group documents.
+group_by_perm_view:     The name of a view that maps permission names to group documents.
+perm_class:             The class for Permission documents.  Not used by quickstart.
+perm_name_key:          Permission attribute where the permission name is stored.
+perm_list_view:         The name of a view that maps permission names to permission documents.
+perm_by_group_view:     The name of a view that maps group names to permission documents.
 """
 default_translations = {
+    'user_class': None,
     'user_name_key': 'username',
     'user_groups_key': 'groups',
-    'user_find_by_name': 'find_by_username',
-    'user_find_by_group': 'find_by_group_name',
-    'user_authenticate': 'authenticate',
+    'user_list_view': 'whatcouch/user_list',
+    'user_by_group_view': 'whatcouch/user_by_group',
+    'user_auth_method': 'authenticate',
+    'group_class': None,    
     'group_name_key': 'name',
     'group_perms_key': 'permissions',
-    'group_list': 'list',
-    'group_find_by_name': 'find_by_name',
-    'group_find_by_perm': 'find_by_permission_name',
+    'group_list_view': 'whatcouch/group_list',
+    'group_by_perm_view': 'whatcouch/group_by_permission',
+    'perm_class': None,
     'perm_name_key': 'name',
-    'perm_list': 'list',
-    'perm_find_by_name': 'find_by_name',
-    'perm_find_by_group': 'find_by_group_name'}
+    'perm_list_view': 'whatcouch/permission_list',
+    'perm_by_group_view': 'whatcouch/permission_by_group'}
 
 def setup_couch_auth(app, user_class=None, group_class=None, permission_class=None, 
         form_plugin=None, form_identities=True,

@@ -1,0 +1,4 @@
+couchdbkit >= 0.4.0
+repoze.what >=1.0.0, <2.0.0
+zope.interface
+py_bcrypt

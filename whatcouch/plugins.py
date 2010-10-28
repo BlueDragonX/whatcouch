@@ -29,7 +29,10 @@ class AuthenticatorPlugin:
         :param translations: The translations to use when mapping requests against a model.
         """
         self.t11 = translations
-        self.user_wrapper = UserClassWrapper(translations)
+        self.User = self.t11['user_class']
+        self.user_name_key = self.t11['user_name_key']
+        self.user_list_view = self.t11['user_list_view']
+        self.user_auth_method = self.t11['user_auth_method']
 
     def authenticate(self, environ, identity):
         """
@@ -37,10 +40,13 @@ class AuthenticatorPlugin:
         :param environ: WSGI environment.
         :param identity: Identity dict for the user.
         """
-        if 'login' in identity and 'login' in identity:
-            user = self.user_wrapper.find_by_name(identity['login'])
-            if user is not None and user.authenticate(identity['password']):
-                return user.name
+        if 'login' in identity and 'password' in identity:
+            users = self.User.view(self.user_list_view, key=identity['login'])
+            if len(users) > 0:
+                user = users.__iter__().next()
+                auth = getattr(user, self.user_auth_method)
+                if auth(identity['password']):
+                    return getattr(user, self.user_name_key)
         return None
 
 class MetadataPlugin:
@@ -52,7 +58,8 @@ class MetadataPlugin:
         :param translations: The translations to use when mapping requests against a model.
         """
         self.t11 = translations
-        self.user_wrapper = UserClassWrapper(translations)
+        self.User = self.t11['user_class']
+        self.user_list_view = self.t11['user_list_view']
 
     def add_metadata(self, environ, identity):
         """
@@ -60,7 +67,8 @@ class MetadataPlugin:
         :param environ: WSGI environment.
         :param identity: Identity dict for the user.
         """
-        user = self.user_wrapper.find_by_name(identity['repoze.who.userid'])
-        if user is not None:
-            identity['user'] = self.user_wrapper.unwrap(user)
+        if 'repoze.who.userid' in identity:
+            users = self.User.view(self.user_list_view, key=identity['repoze.who.userid'])
+            if len(users) > 0:
+                identity['user'] = users[0]
 
