@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '1.0dev3'
+version = '1.0dev4'
 
 setup(name='whatcouch',
     version=version,
