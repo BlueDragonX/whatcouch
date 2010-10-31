@@ -12,6 +12,8 @@
 from couchdbkit import Document, StringProperty, SchemaListProperty
 import bcrypt
 
+__all__ = ['Permission', 'Group', 'User', 'init_model']
+
 def hashpw(password, salt=None):
     """
     Hash a password using the optional salt.  If salt is not specified one

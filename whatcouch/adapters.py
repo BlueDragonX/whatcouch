@@ -18,7 +18,8 @@ documentation on the translations dict.
 """
 
 from repoze.what.adapters import BaseSourceAdapter
-from whatcouch.wrappers import *
+
+__all__ = ['GroupAdapter', 'PermissionAdapter']
 
 class GroupAdapter(BaseSourceAdapter):
     """
@@ -73,14 +74,15 @@ class GroupAdapter(BaseSourceAdapter):
         for group in groups:
             name = getattr(group, self.group_name_key)
             sections[name] = self._get_section_items(name)
-
+        return sections
+            
     def _get_section_items(self, section):
         """
         Get a list of user names for the given group.
         :param section: The name of the group to retrieve user names for.
         :return: A list of user names.  Will be empty of the group does not exist.
         """
-        users = self.User.view(self.user_list_view)
+        users = self.User.view(self.user_by_group_view, key=section)
         return [ getattr(user, self.user_name_key) for user in users ]
 
     def _find_sections(self, hint):
@@ -108,9 +110,10 @@ class GroupAdapter(BaseSourceAdapter):
         :return: True if the user is in the group, False otherwise.
         """
         user = self._get_user(item)
-        for group in user.groups:
-            if getattr(group, self.group_name_key) == section:
-                return True
+        if user is not None:
+            for group in user.groups:
+                if getattr(group, self.group_name_key) == section:
+                    return True
         return False
 
     def _include_items(self, section, items):
@@ -139,9 +142,13 @@ class GroupAdapter(BaseSourceAdapter):
         for item in items:
             user = self._get_user(item)
             if user is not None:
-                remove_groups = filter(lambda g: getattr(g, self.group_name_key) == section, getattr(user, self.user_groups_key))
-                if len(remove_groups) > 0:
-                    map(lambda g: getattr(user, self.user_groups_key).remove(g), remove_groups)
+                add_user = False
+                groups = getattr(user, self.user_groups_key)
+                for i in range(len(groups)-1, -1, -1):
+                    if getattr(groups[i], self.group_name_key) == section:
+                        del groups[i]
+                        add_user = True
+                if add_user:
                     save_users.append(user)
         self.User.bulk_save(save_users)
 
@@ -179,16 +186,20 @@ class GroupAdapter(BaseSourceAdapter):
         :param section: The name of the group to delete.
         """
         group = self._get_group(section)
-        save_users = []
         if group is not None:
+            save_users = []
             users = self.User.view(self.user_by_group_view, key=section)
             for user in users:
-                remove_groups = filter(lambda g: getattr(g, self.group_name_key) == section)
-                if len(remove_groups) > 0:
-                    map(lambda g: getattr(user, self.user_groups_key).remove(g), remove_groups)
+                add_user = False
+                groups = getattr(user, self.user_groups_key)
+                for i in range(len(groups)-1, -1, -1):
+                    if getattr(groups[i], self.group_name_key) == section:
+                        del groups[i]
+                        add_user = True
+                if add_user:
                     save_users.append(user)
-        self.User.bulk_save(save_users)
-        group.delete()
+            self.User.bulk_save(save_users)
+            group.delete()
 
 class PermissionAdapter(BaseSourceAdapter):
 
@@ -201,13 +212,14 @@ class PermissionAdapter(BaseSourceAdapter):
         self.Group = self.t11['group_class']
         self.group_name_key = self.t11['group_name_key']
         self.group_perms_key = self.t11['group_perms_key']
+        self.group_list_view = self.t11['group_list_view']
         self.group_by_perm_view = self.t11['group_by_perm_view']
         self.Permission = self.t11['perm_class']
         self.perm_name_key = self.t11['perm_name_key']
         self.perm_list_view = self.t11['perm_list_view']
         self.perm_by_group_view = self.t11['perm_by_group_view']
 
-    def _get_group(name):
+    def _get_group(self, name):
         """
         Get a group by name.
         :param name: The name of the group to get.
@@ -218,7 +230,7 @@ class PermissionAdapter(BaseSourceAdapter):
             return groups.__iter__().next()
         return None
 
-    def _get_perm(name):
+    def _get_perm(self, name):
         """
         Get a permission by name.
         :param name: The name of the permission to get.
@@ -267,9 +279,10 @@ class PermissionAdapter(BaseSourceAdapter):
         :return: True if the group is in the permission, False otherwise.
         """
         group = self._get_group(item)
-        for perm in getattr(group, self.group_perms_key):
-            if getattr(perm, self.perm_name_key) == section:
-                return True
+        if group is not None:
+            for perm in getattr(group, self.group_perms_key):
+                if getattr(perm, self.perm_name_key) == section:
+                    return True
         return False
 
     def _include_items(self, section, items):
@@ -298,9 +311,13 @@ class PermissionAdapter(BaseSourceAdapter):
         for item in items:
             group = self._get_group(item)
             if group is not None:
-                remove_perms = filter(lambda p: getattr(p, self.perm_name_key) == section, getattr(group, self.group_perms_key))
-                if len(remove_perms) > 0:
-                    map(lambda p: getattr(group, self.group_perms_key).remove(p), remove_perms)
+                add_group = False
+                perms = getattr(group, self.group_perms_key)
+                for i in range(len(perms)-1, -1, -1):
+                    if getattr(perms[i], self.perm_name_key) == section:
+                        del perms[i]
+                        add_group = True
+                if add_group:
                     save_groups.append(group)
         self.Group.bulk_save(save_groups)
 
@@ -338,14 +355,18 @@ class PermissionAdapter(BaseSourceAdapter):
         :param section: The name of the permission to delete.
         """
         perm = self._get_perm(section)
-        save_groups = []
         if perm is not None:
+            save_groups = []
             groups = self.Group.view(self.group_by_perm_view, key=section)
             for group in groups:
-                remove_perms = filter(lambda p: getattr(p, self.perm_name_key) == section)
-                if len(remove_perms) > 0:
-                    map(lambda p: getattr(group, self.group_perms_key).remove(p), remove_perms)
+                add_group = False
+                perms = getattr(group, self.group_perms_key)
+                for i in range(len(perms)-1, -1, -1):
+                    if getattr(perms[i], self.perm_name_key) == section:
+                        del perms[i]
+                        add_group = True
+                if add_group:
                     save_groups.append(group)
-        self.Group.bulk_save(save_groups)
-        perm.delete()
+            self.Group.bulk_save(save_groups)
+            perm.delete()
 

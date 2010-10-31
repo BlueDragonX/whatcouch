@@ -20,6 +20,8 @@ from whatcouch.adapters import GroupAdapter, PermissionAdapter
 from whatcouch.plugins import AuthenticatorPlugin, MetadataPlugin
 from whatcouch.model import User, Group, Permission
 
+__all__ = ['setup_couch_auth']
+
 """
 Default translations.  These will be substituted for missing values
 in the translations dict that is passed to the quickstart function.

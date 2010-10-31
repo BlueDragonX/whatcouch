@@ -15,7 +15,8 @@ See the repoze.who documentation at <> for additional details.
 
 from zope.interface import implements
 from repoze.who.interfaces import IAuthenticator, IMetadataProvider
-from whatcouch.wrappers import UserClassWrapper
+
+__all__ = ['AuthenticatorPlugin', 'MetadataPlugin']
 
 class AuthenticatorPlugin:
     """
@@ -70,5 +71,5 @@ class MetadataPlugin:
         if 'repoze.who.userid' in identity:
             users = self.User.view(self.user_list_view, key=identity['repoze.who.userid'])
             if len(users) > 0:
-                identity['user'] = users[0]
+                identity['user'] = users.__iter__().next()
 
