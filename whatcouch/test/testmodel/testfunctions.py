@@ -1,13 +1,13 @@
 # Copyright (c) 2010, Ryan Bourgeois <bluedragonx@gmail.com>
 # All rights reserved.
 #
-# This software is licensed under the GNU General Public License v2.0.
-# A copy of the license should have been included with this file but
-# is available online at http://www.gnu.org/licenses/gpl-2.0.html.
-# This software is provided "as is" and any and all express or implied
-# warranties are disclaimed, including, but not limited to, the implied
-# warranties of title, merchantability, against infringement, and fitness
-# for a particular purpose.
+# This software is licensed under a modified BSD license as defined in the
+# provided license file at the root of this project.  You may modify and/or
+# distribute in accordance with those terms.
+#
+# This software is provided "as is" and any express or implied warranties,
+# including, but not limited to, the implied warranties of merchantability and
+# fitness for a particular purpose are disclaimed.
 
 import bcrypt
 from whatcouch.model import hashpw, hashcmp, init_model, User, Group, Permission

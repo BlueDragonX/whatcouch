@@ -5,7 +5,6 @@ whatcouch/adapters.py
 whatcouch/model.py
 whatcouch/plugins.py
 whatcouch/quickstart.py
-whatcouch/wrappers.py
 whatcouch.egg-info/PKG-INFO
 whatcouch.egg-info/SOURCES.txt
 whatcouch.egg-info/dependency_links.txt
@@ -13,3 +12,17 @@ whatcouch.egg-info/entry_points.txt
 whatcouch.egg-info/not-zip-safe
 whatcouch.egg-info/requires.txt
 whatcouch.egg-info/top_level.txt
+whatcouch/test/__init__.py
+whatcouch/test/testadapters/__init__.py
+whatcouch/test/testadapters/testgroupadapterempty.py
+whatcouch/test/testadapters/testgroupadapterpopulated.py
+whatcouch/test/testadapters/testpermissionadapterempty.py
+whatcouch/test/testadapters/testpermissionadapterpopulated.py
+whatcouch/test/testmodel/__init__.py
+whatcouch/test/testmodel/testfunctions.py
+whatcouch/test/testmodel/testgroup.py
+whatcouch/test/testmodel/testpermission.py
+whatcouch/test/testmodel/testuser.py
+whatcouch/test/testplugins/__init__.py
+whatcouch/test/testplugins/testauthenticatorplugin.py
+whatcouch/test/testplugins/testmetadataplugin.py
