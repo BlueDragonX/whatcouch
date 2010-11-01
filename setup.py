@@ -12,7 +12,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '1.0dev5'
+version = '1.0dev6'
 
 setup(name='whatcouch',
     version=version,
