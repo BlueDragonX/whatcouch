@@ -1,6 +1,6 @@
 Metadata-Version: 1.0
 Name: whatcouch
-Version: 1.0dev5
+Version: 1.0dev6
 Summary: A CouchDB plugin for repoze.what!
 Home-page: http://code.google.com/p/whatcouch/
 Author: Ryan Bourgeois

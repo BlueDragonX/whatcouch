@@ -31,6 +31,7 @@ setup(name='whatcouch',
         # -*- Extra requirements: -*-
         'couchdbkit >= 0.4.0',
         'repoze.what >=1.0.0, <2.0.0',
+        'repoze.who-friendlyform',
         'zope.interface',
         'py_bcrypt'],
     entry_points="""
